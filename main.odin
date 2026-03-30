@@ -25,7 +25,7 @@ Chromatid :: struct {
 }
 
 ChromatidPair :: struct {
-    pair_id: u8,
+    pair_id: string,
     left_chrom: Chromatid,
     right_chrom: Chromatid
 }
@@ -45,7 +45,7 @@ make_locus :: proc(locus_name: string, alleles: []string, position: f32) -> []Lo
 
 
 
-init_chromatid_pair :: proc(pair_id: u8, length: f32) -> ChromatidPair {
+init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32) -> ChromatidPair {
     right_segment_array: [dynamic]Segment
     left_segment_array: [dynamic]Segment
 
@@ -70,13 +70,13 @@ init_chromatid_pair :: proc(pair_id: u8, length: f32) -> ChromatidPair {
     left_chrom:= Chromatid {
         "left",
         left_segment_array,
-        length
+        left_length
     }
 
     right_chrom:= Chromatid {
         "right", 
         right_segment_array,
-        length
+        right_length
     }
     
     return( 
@@ -109,7 +109,7 @@ add_locus :: proc(chrom_pair: ChromatidPair, locus_name: string, left_allele: st
 main :: proc() {
 
 
-    chrom_1: = init_chromatid_pair(1, 100)
+    chrom_1: = init_chromatid_pair("1", 100, 100)
 
     add_locus(chrom_1, "color", "a", "b", 50)
     add_locus(chrom_1, "wings", "B", "b", 90)
