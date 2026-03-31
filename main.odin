@@ -3,6 +3,7 @@ package game
 import "core:fmt"
 import "core:os"
 import rl "vendor:raylib"
+import "core:strings"
 
 
 Locus :: struct {
@@ -14,6 +15,8 @@ Locus :: struct {
 Segment :: struct {
     chromatid_parent_id: string,
     loci: [dynamic]Locus,
+    start: f32,
+    end: f32
    // dragging: bool,
    // drag_offset: rl.Vector2
 }
@@ -55,12 +58,16 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
 
     right_seg: = Segment {
         "right",
-        right_locus_array
+        right_locus_array,
+        0,
+        right_length
     }
 
     left_seg: = Segment {
         "left",
-        left_locus_array
+        left_locus_array,
+        0,
+        left_length
     } 
 
     append(&right_segment_array, right_seg)
@@ -104,6 +111,30 @@ add_locus :: proc(chrom_pair: ChromatidPair, locus_name: string, left_allele: st
     append(&chrom_pair.right_chrom.segments[0].loci, right_locus)
 }
 
+draw_chrom_pair :: proc(chroms: ChromatidPair, x_pos: f32, y_pos: f32) {
+    
+    width : f32 = 25
+    padding : f32 = width + 5
+    left_length := chroms.left_chrom.length
+    right_length := chroms.right_chrom.length
+
+    left_chrom := rl.Rectangle {
+        x_pos,
+        y_pos,
+        width,
+        left_length
+    }
+
+    right_chrom := rl.Rectangle {
+        x_pos + padding,
+        y_pos,
+        width,
+        right_length
+    }
+    
+    rl.DrawRectangleRec(left_chrom, rl.RED) // left
+    rl.DrawRectangleRec(right_chrom, rl.BLUE) // right
+}
 
 
 main :: proc() {
@@ -118,7 +149,6 @@ main :: proc() {
     //fmt.printfln(str)
 
 	rl.InitWindow(1280, 720, "My Odin + Raylib game")
-    rec := rl.Rectangle { 300, 300, 50, 200 }
 
 
     for !rl.WindowShouldClose() {
@@ -154,7 +184,12 @@ main :: proc() {
         rl.BeginDrawing()
 		rl.ClearBackground({160, 200, 255, 255})
 
-        //    rl.DrawRectangleRec(chrom.rec,  chrom.dragging ? rl.MAROON : rl.RED)
+            //rl.DrawRectangleRec(chrom.rec,  chrom.dragging ? rl.MAROON : rl.RED)
+            //rl.DrawRectangle(300, 300, 50, 200, rl.RED)
+            draw_chrom_pair(chrom_1, 300, 300)
+            
+            text := fmt.tprintf("Mouse Pos: [%d, %d]", i32(mouse_pos.x), i32(mouse_pos.y))
+            rl.DrawText(strings.clone_to_cstring(text, context.temp_allocator), 10, 10, 20, rl.BLACK)
         
         rl.EndDrawing()
 
