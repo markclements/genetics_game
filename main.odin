@@ -29,26 +29,14 @@ Chromatid :: struct {
 
 ChromatidPair :: struct {
     pair_id: string,
+    x_pos: f32,
+    y_pos: f32,
     left_chrom: Chromatid,
     right_chrom: Chromatid
 }
 
-make_locus :: proc(locus_name: string, alleles: []string, position: f32) -> []Locus {
-    locus_array : [dynamic]Locus
-    for allele in alleles {
-        locus := Locus {
-            locus_name,
-            allele,
-            position
-        }
-        append(&locus_array, locus)
-    }
-    return(locus_array)[:]
-}
 
-
-
-init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32) -> ChromatidPair {
+init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32, x_pos: f32, y_pos: f32) -> ChromatidPair {
     right_segment_array: [dynamic]Segment
     left_segment_array: [dynamic]Segment
 
@@ -89,6 +77,8 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
     return( 
         ChromatidPair {
             pair_id,
+            x_pos,
+            y_pos,
             left_chrom,
             right_chrom
         }
@@ -111,7 +101,7 @@ add_locus :: proc(chrom_pair: ChromatidPair, locus_name: string, left_allele: st
     append(&chrom_pair.right_chrom.segments[0].loci, right_locus)
 }
 
-draw_chrom_pair :: proc(chroms: ChromatidPair, x_pos: f32, y_pos: f32) {
+draw_chrom_pair :: proc(chroms: ChromatidPair) {
     
     width : f32 = 25
     padding : f32 = width + 5
@@ -119,39 +109,49 @@ draw_chrom_pair :: proc(chroms: ChromatidPair, x_pos: f32, y_pos: f32) {
     right_length := chroms.right_chrom.length
 
     left_chrom := rl.Rectangle {
-        x_pos,
-        y_pos,
+        chroms.x_pos,
+        chroms.y_pos,
         width,
         left_length
     }
 
     right_chrom := rl.Rectangle {
-        x_pos + padding,
-        y_pos,
+        chroms.x_pos + padding,
+        chroms.y_pos,
         width,
         right_length
     }
     
-    rl.DrawRectangleRec(left_chrom, rl.RED) // left
-    rl.DrawRectangleRec(right_chrom, rl.BLUE) // right
+    rl.DrawRectangleLinesEx(left_chrom, 0.5, rl.RED) // left
+    rl.DrawRectangleLinesEx(right_chrom, 0.5, rl.BLUE) // right
+
+    for seg in chroms.left_chrom.segments {
+        
+    }
+
 }
 
 
 main :: proc() {
+    rl.InitWindow(1280, 720, "My Odin + Raylib game")
 
+    sh := rl.GetScreenHeight()
+    sw := rl.GetScreenWidth()
 
-    chrom_1: = init_chromatid_pair("1", 100, 100)
+    fmt.println(sh)
+
+    chrom_1: = init_chromatid_pair("1", 100, 100, f32(sw/2), f32(sh/2))
 
     add_locus(chrom_1, "color", "a", "b", 50)
     add_locus(chrom_1, "wings", "B", "b", 90)
 
-    fmt.println(chrom_1.left_chrom.segments[:])
+    //fmt.println(chrom_1.left_chrom.segments[:])
     //fmt.printfln(str)
 
-	rl.InitWindow(1280, 720, "My Odin + Raylib game")
+	
 
 
-    for !rl.WindowShouldClose() {
+    for !rl.WindowShouldClose() { // main loop starts here
 
         mouse_pos := rl.GetMousePosition()
 
@@ -184,9 +184,8 @@ main :: proc() {
         rl.BeginDrawing()
 		rl.ClearBackground({160, 200, 255, 255})
 
-            //rl.DrawRectangleRec(chrom.rec,  chrom.dragging ? rl.MAROON : rl.RED)
-            //rl.DrawRectangle(300, 300, 50, 200, rl.RED)
-            draw_chrom_pair(chrom_1, 300, 300)
+            
+            draw_chrom_pair(chrom_1)
             
             text := fmt.tprintf("Mouse Pos: [%d, %d]", i32(mouse_pos.x), i32(mouse_pos.y))
             rl.DrawText(strings.clone_to_cstring(text, context.temp_allocator), 10, 10, 20, rl.BLACK)
@@ -194,6 +193,6 @@ main :: proc() {
         rl.EndDrawing()
 
 }
-	rl.CloseWindow()
+	rl.CloseWindow() // main loop ends here
 
 }
