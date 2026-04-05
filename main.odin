@@ -14,17 +14,16 @@ Locus :: struct {
 
 Segment :: struct {
     chromatid_parent_id: string,
+    rect: rl.Rectangle,
     loci: [dynamic]Locus,
-    start: f32,
-    end: f32
-   // dragging: bool,
-   // drag_offset: rl.Vector2
 }
 
 Chromatid :: struct {
     chromatid_id: string,
+    rect: rl.Rectangle,
     segments: [dynamic]Segment,
-    length: f32
+    // dragging: bool,
+    // drag_offset: rl.Vector2
 }
 
 ChromatidPair :: struct {
@@ -45,17 +44,25 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
 
 
     right_seg: = Segment {
-        "right",
-        right_locus_array,
-        0,
-        right_length
+        chromatid_parent_id = "right",
+        rect = rl.Rectangle {
+            x_pos + 30, // offset for visual separation
+            y_pos,
+            25,
+            right_length
+        },
+        loci = right_locus_array,
     }
 
     left_seg: = Segment {
-        "left",
-        left_locus_array,
-        0,
-        left_length
+        chromatid_parent_id = "left", 
+        rect = rl.Rectangle {
+            x_pos,
+            y_pos,
+            25,
+            left_length
+        }, 
+        loci = left_locus_array,
     } 
 
     append(&right_segment_array, right_seg)
@@ -63,17 +70,27 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
 
 
     left_chrom:= Chromatid {
-        "left",
-        left_segment_array,
-        left_length
+        chromatid_id = "left",
+        rect = rl.Rectangle {
+            x_pos,
+            y_pos,
+            25,
+            left_length
+        },
+        segments = left_segment_array    
     }
 
     right_chrom:= Chromatid {
-        "right", 
-        right_segment_array,
-        right_length
+        chromatid_id = "right",
+        rect = rl.Rectangle {
+            x_pos + 30, // offset for visual separation
+            y_pos,
+            25,
+            right_length
+        },
+        segments = right_segment_array,
     }
-    
+
     return( 
         ChromatidPair {
             pair_id,
@@ -86,48 +103,62 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
 }
 
 
-add_locus :: proc(chrom_pair: ChromatidPair, locus_name: string, left_allele: string, right_allele: string, position: f32) {
+add_locus :: proc(chrom_pair: ^ChromatidPair, locus_name: string, left_allele: string, right_allele: string, position: f32) {
     left_locus: = Locus {
-        locus_name,
-        left_allele,
-        position
+      name = locus_name,
+        allele = left_allele,
+        position = position
     }
     right_locus: = Locus {
-        locus_name,
-        right_allele,
-        position
+        name = locus_name,
+        allele = right_allele,
+        position = position
     }
     append(&chrom_pair.left_chrom.segments[0].loci, left_locus)
     append(&chrom_pair.right_chrom.segments[0].loci, right_locus)
 }
 
 draw_chrom_pair :: proc(chroms: ChromatidPair) {
-    
-    width : f32 = 25
-    padding : f32 = width + 5
-    left_length := chroms.left_chrom.length
-    right_length := chroms.right_chrom.length
-
-    left_chrom := rl.Rectangle {
-        chroms.x_pos,
-        chroms.y_pos,
-        width,
-        left_length
-    }
-
-    right_chrom := rl.Rectangle {
-        chroms.x_pos + padding,
-        chroms.y_pos,
-        width,
-        right_length
-    }
-    
-    rl.DrawRectangleLinesEx(left_chrom, 0.5, rl.RED) // left
-    rl.DrawRectangleLinesEx(right_chrom, 0.5, rl.BLUE) // right
+     
+    rl.DrawRectangleLinesEx(chroms.left_chrom.rect, 0.75, rl.RED) // left
+    rl.DrawRectangleLinesEx(chroms.right_chrom.rect, 0.75, rl.BLUE) // right
 
     for seg in chroms.left_chrom.segments {
-        
+        rl.DrawRectangle(i32(seg.rect.x + 5 ), i32(seg.rect.y), i32(seg.rect.width-10), i32(seg.rect.height), rl.RED)
     }
+
+    for seg in chroms.right_chrom.segments {
+        rl.DrawRectangle(i32(seg.rect.x +5 ), i32(seg.rect.y), i32(seg.rect.width-10), i32(seg.rect.height), rl.BLUE)
+    }
+}
+
+split_chrom :: proc(chrom: ^ChromatidPair, click_position: [2]f32) {
+
+    relative_click_pos := click_position.y - chrom.left_chrom.rect.y 
+
+           // chrom_start := 
+            chrom_height := chrom.left_chrom.segments[0].rect.height
+
+            chrom.left_chrom.segments[0].rect.height = relative_click_pos
+
+            new_segment_rect := rl.Rectangle {
+                x = chrom.left_chrom.rect.x,
+                y = click_position.y,
+                height = chrom_height - relative_click_pos,
+                width = 20
+            }
+        
+            new_segment_loci : [dynamic]Locus
+        
+            new_segment := Segment {
+                chromatid_parent_id = chrom.pair_id,
+                loci = new_segment_loci,
+                rect = new_segment_rect
+            }
+            
+            append(&chrom.left_chrom.segments, new_segment)
+
+            fmt.println(chrom.left_chrom)
 
 }
 
@@ -138,12 +169,10 @@ main :: proc() {
     sh := rl.GetScreenHeight()
     sw := rl.GetScreenWidth()
 
-    fmt.println(sh)
-
     chrom_1: = init_chromatid_pair("1", 100, 100, f32(sw/2), f32(sh/2))
 
-    add_locus(chrom_1, "color", "a", "b", 50)
-    add_locus(chrom_1, "wings", "B", "b", 90)
+    add_locus(&chrom_1, "color", "a", "b", 50)
+    add_locus(&chrom_1, "wings", "B", "b", 90)
 
     //fmt.println(chrom_1.left_chrom.segments[:])
     //fmt.printfln(str)
@@ -154,6 +183,11 @@ main :: proc() {
     for !rl.WindowShouldClose() { // main loop starts here
 
         mouse_pos := rl.GetMousePosition()
+
+        if  rl.IsMouseButtonPressed(.RIGHT) && rl.CheckCollisionPointRec(mouse_pos, chrom_1.left_chrom.rect) || 
+            rl.IsMouseButtonPressed(.RIGHT) && rl.CheckCollisionPointRec(mouse_pos, chrom_1.right_chrom.rect) {
+            split_chrom(&chrom_1, mouse_pos) 
+        }
 
         /*
 
