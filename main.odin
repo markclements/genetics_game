@@ -109,6 +109,7 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
 }
 
 add_locus :: proc(chrom_pair: ^HomologousPair, locus_name: string, left_allele: string, right_allele: string, position: f32) {
+   
     left_locus: = Locus {
       name = locus_name,
         allele = left_allele,
@@ -119,14 +120,16 @@ add_locus :: proc(chrom_pair: ^HomologousPair, locus_name: string, left_allele: 
         allele = right_allele,
         position = position
     }
-    append(&HomologousPair.chromatids[0].segments[0].loci, left_locus)
-    append(&HomologousPair.chromatids[1].segments[0].loci, left_locus)
-    append(&HomologousPair.chromatids[2].segments[0].loci, left_locus)
-    append(&HomologousPair.chromatids[3].segments[0].loci, left_locus)
+        append(&chrom_pair.chromatids[0].segments[0].loci, left_locus)
+        append(&chrom_pair.chromatids[1].segments[0].loci, left_locus)
+        append(&chrom_pair.chromatids[2].segments[0].loci, left_locus)
+        append(&chrom_pair.chromatids[3].segments[0].loci, left_locus)
+    
 }
 
-draw_chrom_pair :: proc(chroms: ChromPair) {
-    for chrom in chroms {
+
+draw_chrom_pair :: proc(chroms: HomologousPair) {
+    for chrom in chroms.chromatids {
         rl.DrawRectangleLinesEx(chrom.rect, 0.75, chrom.color) // left
             for seg in chrom.segments {
                 rl.DrawRectangle(i32(seg.rect.x + 5 ), i32(seg.rect.y), i32(seg.rect.width-10), i32(seg.rect.height), seg.color)
@@ -176,14 +179,14 @@ main :: proc() {
     add_locus(&chrom_1, "color", "a", "b", 50)
     add_locus(&chrom_1, "wings", "B", "b", 90)
 
-    // chrom_2: = init_chromatid_pair("2", 100, 100, f32(sw/2), f32(sh/2) + 125)
+    chrom_2: = init_chromatid_pair("2", 100, 100, f32(sw/2), f32(sh/2) + 125)
 
-    // add_locus(&chrom_2, "size", "c", "C", 30)
-    // add_locus(&chrom_2, "type", "D", "d", 70)
+    add_locus(&chrom_2, "size", "c", "C", 30)
+    add_locus(&chrom_2, "type", "D", "d", 70)
 
-    genome:[dynamic]ChromPair
+    genome:[dynamic]HomologousPair
 
-   // append(&genome, chrom_1, chrom_2)
+   append(&genome, chrom_1, chrom_2)
 
     //fmt.println(chrom_1.left_chrom.segments[:])
     //fmt.printfln(str)
