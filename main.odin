@@ -9,33 +9,38 @@ import "core:strings"
 Locus :: struct {
     name: string, 
     allele: string,
-    position: f32
+    position: f32,
 }
 
 Segment :: struct {
     chromatid_parent_id: string,
     rect: rl.Rectangle,
     loci: [dynamic]Locus,
+    color: rl.Color
 }
 
 Chromatid :: struct {
+    pair_id: string,
     chromatid_id: string,
     rect: rl.Rectangle,
     segments: [dynamic]Segment,
+    color: rl.Color
     // dragging: bool,
     // drag_offset: rl.Vector2
 }
 
-ChromatidPair :: struct {
-    pair_id: string,
-    x_pos: f32,
+HomologousPair :: struct {
+    pair_id: string, //"1", "XY"
+    x_pos : f32, // starting position, might be used to drive positions and animations? 
     y_pos: f32,
-    left_chrom: Chromatid,
-    right_chrom: Chromatid
+    chromatids: [4]Chromatid, // ordered 0,1,2,3; 1 and 2 are nonsister and capable of crossover, 0 and 3 are non sister and do not crossover
+                             // 4 because of duplication so we don't have to write proc to duplicate chromatid. Just hide or show based upon state. 
 }
 
+ChromPair :: [4]Chromatid
+Genome :: [dynamic]ChromPair
 
-init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32, x_pos: f32, y_pos: f32) -> ChromatidPair {
+init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32, x_pos: f32, y_pos: f32) -> HomologousPair {
     right_segment_array: [dynamic]Segment
     left_segment_array: [dynamic]Segment
 
@@ -52,6 +57,7 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
             right_length
         },
         loci = right_locus_array,
+        color = rl.BLUE
     }
 
     left_seg: = Segment {
@@ -63,6 +69,7 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
             left_length
         }, 
         loci = left_locus_array,
+        color = rl.RED
     } 
 
     append(&right_segment_array, right_seg)
@@ -77,7 +84,8 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
             25,
             left_length
         },
-        segments = left_segment_array    
+        segments = left_segment_array,
+        color = rl.RED    
     }
 
     right_chrom:= Chromatid {
@@ -89,21 +97,18 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
             right_length
         },
         segments = right_segment_array,
+        color = rl.BLUE
     }
 
-    return( 
-        ChromatidPair {
-            pair_id,
-            x_pos,
-            y_pos,
-            left_chrom,
-            right_chrom
-        }
-    )
+    return HomologousPair { 
+        pair_id = pair_id,
+        x_pos = x_pos,
+        y_pos = y_pos,
+        chromatids = {left_chrom, left_chrom, right_chrom, right_chrom}
+    }
 }
 
-
-add_locus :: proc(chrom_pair: ^ChromatidPair, locus_name: string, left_allele: string, right_allele: string, position: f32) {
+add_locus :: proc(chrom_pair: ^HomologousPair, locus_name: string, left_allele: string, right_allele: string, position: f32) {
     left_locus: = Locus {
       name = locus_name,
         allele = left_allele,
@@ -114,24 +119,21 @@ add_locus :: proc(chrom_pair: ^ChromatidPair, locus_name: string, left_allele: s
         allele = right_allele,
         position = position
     }
-    append(&chrom_pair.left_chrom.segments[0].loci, left_locus)
-    append(&chrom_pair.right_chrom.segments[0].loci, right_locus)
+    append(&HomologousPair.chromatids[0].segments[0].loci, left_locus)
+    append(&HomologousPair.chromatids[1].segments[0].loci, left_locus)
+    append(&HomologousPair.chromatids[2].segments[0].loci, left_locus)
+    append(&HomologousPair.chromatids[3].segments[0].loci, left_locus)
 }
 
-draw_chrom_pair :: proc(chroms: ChromatidPair) {
-     
-    rl.DrawRectangleLinesEx(chroms.left_chrom.rect, 0.75, rl.RED) // left
-    rl.DrawRectangleLinesEx(chroms.right_chrom.rect, 0.75, rl.BLUE) // right
-
-    for seg in chroms.left_chrom.segments {
-        rl.DrawRectangle(i32(seg.rect.x + 5 ), i32(seg.rect.y), i32(seg.rect.width-10), i32(seg.rect.height), rl.RED)
-    }
-
-    for seg in chroms.right_chrom.segments {
-        rl.DrawRectangle(i32(seg.rect.x +5 ), i32(seg.rect.y), i32(seg.rect.width-10), i32(seg.rect.height), rl.BLUE)
+draw_chrom_pair :: proc(chroms: ChromPair) {
+    for chrom in chroms {
+        rl.DrawRectangleLinesEx(chrom.rect, 0.75, chrom.color) // left
+            for seg in chrom.segments {
+                rl.DrawRectangle(i32(seg.rect.x + 5 ), i32(seg.rect.y), i32(seg.rect.width-10), i32(seg.rect.height), seg.color)
+        }
     }
 }
-
+/*
 split_chrom :: proc(chrom: ^ChromatidPair, click_position: [2]f32) {
 
     relative_click_pos := click_position.y - chrom.left_chrom.rect.y 
@@ -160,7 +162,7 @@ split_chrom :: proc(chrom: ^ChromatidPair, click_position: [2]f32) {
 
             fmt.println(chrom.left_chrom)
 
-}
+}*/
 
 
 main :: proc() {
@@ -174,20 +176,27 @@ main :: proc() {
     add_locus(&chrom_1, "color", "a", "b", 50)
     add_locus(&chrom_1, "wings", "B", "b", 90)
 
+    // chrom_2: = init_chromatid_pair("2", 100, 100, f32(sw/2), f32(sh/2) + 125)
+
+    // add_locus(&chrom_2, "size", "c", "C", 30)
+    // add_locus(&chrom_2, "type", "D", "d", 70)
+
+    genome:[dynamic]ChromPair
+
+   // append(&genome, chrom_1, chrom_2)
+
     //fmt.println(chrom_1.left_chrom.segments[:])
     //fmt.printfln(str)
 
-	
+	//fmt.printf("Address 1: %p\n Address 2: %p\n", &chrom_1[0], &chrom_1[1])
+
 
 
     for !rl.WindowShouldClose() { // main loop starts here
 
         mouse_pos := rl.GetMousePosition()
 
-        if  rl.IsMouseButtonPressed(.RIGHT) && rl.CheckCollisionPointRec(mouse_pos, chrom_1.left_chrom.rect) || 
-            rl.IsMouseButtonPressed(.RIGHT) && rl.CheckCollisionPointRec(mouse_pos, chrom_1.right_chrom.rect) {
-            split_chrom(&chrom_1, mouse_pos) 
-        }
+        
 
         /*
 
@@ -218,9 +227,9 @@ main :: proc() {
         rl.BeginDrawing()
 		rl.ClearBackground({160, 200, 255, 255})
 
-            
-            draw_chrom_pair(chrom_1)
-            
+            for chrom in genome {
+                draw_chrom_pair(chrom)
+            }
             text := fmt.tprintf("Mouse Pos: [%d, %d]", i32(mouse_pos.x), i32(mouse_pos.y))
             rl.DrawText(strings.clone_to_cstring(text, context.temp_allocator), 10, 10, 20, rl.BLACK)
         
