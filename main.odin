@@ -24,9 +24,10 @@ Chromatid :: struct {
     chromatid_id: string,
     rect: rl.Rectangle,
     segments: [dynamic]Segment,
-    color: rl.Color
-    // dragging: bool,
-    // drag_offset: rl.Vector2
+    color: rl.Color,
+    hovered: bool,
+    dragging: bool,
+    drag_offset: rl.Vector2
 }
 
 HomologousPair :: struct {
@@ -37,13 +38,16 @@ HomologousPair :: struct {
                              // 4 because of duplication so we don't have to write proc to duplicate chromatid. Just hide or show based upon state. 
 }
 
-ChromPair :: [4]Chromatid
-Genome :: [dynamic]ChromPair
+Genome :: [dynamic]HomologousPair
 
 init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32, x_pos: f32, y_pos: f32) -> HomologousPair {
+    r_right_segment_array: [dynamic]Segment
+    l_left_segment_array: [dynamic]Segment
     right_segment_array: [dynamic]Segment
     left_segment_array: [dynamic]Segment
 
+    r_right_locus_array: [dynamic]Locus
+    l_left_locus_array: [dynamic]Locus
     right_locus_array: [dynamic]Locus
     left_locus_array: [dynamic]Locus
 
@@ -72,9 +76,18 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
         color = rl.RED
     } 
 
+    r_right_seg:= right_seg
+    r_right_seg.color = rl.BLACK
+    r_right_seg.loci = r_right_locus_array
+
+    l_left_seg:= left_seg
+    l_left_seg.color = rl.BROWN
+    l_left_seg.loci = l_left_locus_array
+
     append(&right_segment_array, right_seg)
     append(&left_segment_array, left_seg)
-
+    append(&l_left_segment_array, l_left_seg)
+    append(&r_right_segment_array, r_right_seg)
 
     left_chrom:= Chromatid {
         chromatid_id = "left",
@@ -86,6 +99,18 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
         },
         segments = left_segment_array,
         color = rl.RED    
+    }
+
+    l_left_chrom:= Chromatid {
+        chromatid_id = "left",
+        rect = rl.Rectangle {
+            x_pos - 30,
+            y_pos,
+            25,
+            left_length,
+        }, 
+        segments = l_left_segment_array, 
+        color = rl.GRAY        
     }
 
     right_chrom:= Chromatid {
@@ -100,11 +125,23 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
         color = rl.BLUE
     }
 
+    r_right_chrom:= Chromatid {
+        chromatid_id = "right",
+        rect = rl.Rectangle {
+            x_pos + 30 + 30, // offset for visual separation
+            y_pos,
+            25,
+            right_length
+        },
+        segments = r_right_segment_array,
+        color = rl.BLACK
+    }
+
     return HomologousPair { 
         pair_id = pair_id,
         x_pos = x_pos,
         y_pos = y_pos,
-        chromatids = {left_chrom, left_chrom, right_chrom, right_chrom}
+        chromatids = {l_left_chrom, left_chrom, right_chrom, r_right_chrom}
     }
 }
 
@@ -122,17 +159,69 @@ add_locus :: proc(chrom_pair: ^HomologousPair, locus_name: string, left_allele: 
     }
         append(&chrom_pair.chromatids[0].segments[0].loci, left_locus)
         append(&chrom_pair.chromatids[1].segments[0].loci, left_locus)
-        append(&chrom_pair.chromatids[2].segments[0].loci, left_locus)
-        append(&chrom_pair.chromatids[3].segments[0].loci, left_locus)
+        append(&chrom_pair.chromatids[2].segments[0].loci, right_locus)
+        append(&chrom_pair.chromatids[3].segments[0].loci, right_locus)
     
 }
 
 
 draw_chrom_pair :: proc(chroms: HomologousPair) {
     for chrom in chroms.chromatids {
-        rl.DrawRectangleLinesEx(chrom.rect, 0.75, chrom.color) // left
+        if chrom.hovered {
+            rl.DrawRectangleLinesEx(chrom.rect, 0.75, rl.YELLOW)
+        }
+        else {
+            rl.DrawRectangleLinesEx(chrom.rect, 0.75, chrom.color)
+         }
             for seg in chrom.segments {
                 rl.DrawRectangle(i32(seg.rect.x + 5 ), i32(seg.rect.y), i32(seg.rect.width-10), i32(seg.rect.height), seg.color)
+        }
+
+    }
+}
+
+highlight_chroms :: proc(chroms: ^HomologousPair, mouse_pos: rl.Vector2) {
+     for chrom in chroms.chromatids {
+        for &chromatids in chroms.chromatids {
+            if rl.CheckCollisionPointRec(mouse_pos, chromatids.rect) {
+                chromatids.hovered = true
+                }
+            else {
+                chromatids.hovered = false
+            }    
+        }
+     }
+}
+
+drag_chroms :: proc(chroms: ^HomologousPair, mouse_pos:rl.Vector2) {
+    #reverse for chrom in chroms.chromatids {
+        for &chromatids in chroms.chromatids {
+            if chromatids.hovered && rl.IsMouseButtonPressed(.LEFT) {
+                chromatids.dragging = true  
+                chromatids.drag_offset = mouse_pos - { chromatids.rect.x, chromatids.rect.y }
+            }
+            if chromatids.dragging {
+            new_pos := mouse_pos - chromatids.drag_offset 
+                chromatids.rect.x = new_pos.x
+                chromatids.rect.y = new_pos.y
+            fmt.printfln("mouse: %v, offset: %v, new: %v", mouse_pos, chrom.drag_offset, new_pos)
+
+                if rl.IsMouseButtonReleased(.LEFT) {
+                chromatids.dragging = false
+                }
+            }
+        }
+    }
+}
+
+update_segment_positions :: proc(chroms: ^HomologousPair) {
+    for chrom in chroms.chromatids {
+        for chromatids in chroms.chromatids {
+            parent_pos:= chromatids.rect 
+            for &segments in chromatids.segments {
+                segments.rect.x = parent_pos.x
+                segments.rect.y = parent_pos.y
+            }
         }
     }
 }
@@ -186,7 +275,7 @@ main :: proc() {
 
     genome:[dynamic]HomologousPair
 
-   append(&genome, chrom_1, chrom_2)
+    append(&genome, chrom_1, chrom_2)
 
     //fmt.println(chrom_1.left_chrom.segments[:])
     //fmt.printfln(str)
@@ -199,34 +288,13 @@ main :: proc() {
 
         mouse_pos := rl.GetMousePosition()
 
-        
-
-        /*
-
-        if rl.IsMouseButtonPressed(.LEFT) && rl.CheckCollisionPointRec(mouse_pos, chrom.rec) {
-                chrom.dragging = true  
-                chrom.drag_offset = mouse_pos - { chrom.rec.x, chrom.rec.y }      
+        for &chromosomes in genome {
+            highlight_chroms(&chromosomes, mouse_pos)
+            drag_chroms(&chromosomes, mouse_pos)
+            update_segment_positions(&chromosomes)
         }
-        
-        if chrom.dragging {
-            new_pos := mouse_pos - chrom.drag_offset 
-            chrom.rec.x = new_pos.x
-            chrom.rec.y = new_pos.y
-
-            // fmt.printfln("mouse: %v, offset: %v, new: %v", mouse_pos, chrom.drag_offset, new_pos)
-
-                if rl.IsMouseButtonReleased(.LEFT) {
-                chrom.dragging = false
-            }
-        }
-        
-        if rl.IsMouseButtonPressed(.RIGHT) && rl.CheckCollisionPointRec(mouse_pos, chrom.rec) {
-            fmt.printfln("right click")
-
-        
-        }
-		
-        */
+           
+    
         rl.BeginDrawing()
 		rl.ClearBackground({160, 200, 255, 255})
 
@@ -238,7 +306,7 @@ main :: proc() {
         
         rl.EndDrawing()
 
-}
+    }
 	rl.CloseWindow() // main loop ends here
 
 }
