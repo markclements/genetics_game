@@ -4,6 +4,7 @@ import "core:fmt"
 import "core:os"
 import rl "vendor:raylib"
 import "core:strings"
+import "core:slice"
 
 
 Locus :: struct {
@@ -34,20 +35,17 @@ HomologousPair :: struct {
     pair_id: string, //"1", "XY"
     x_pos : f32, // starting position, might be used to drive positions and animations? 
     y_pos: f32,
-    chromatids: [4]Chromatid, // ordered 0,1,2,3; 1 and 2 are nonsister and capable of crossover, 0 and 3 are non sister and do not crossover
+    chromatids: [dynamic]Chromatid, // ordered 0,1,2,3; 1 and 2 are nonsister and capable of crossover, 0 and 3 are non sister and do not crossover
                              // 4 because of duplication so we don't have to write proc to duplicate chromatid. Just hide or show based upon state. 
 }
 
 Genome :: [dynamic]HomologousPair
 
 init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32, x_pos: f32, y_pos: f32) -> HomologousPair {
-    r_right_segment_array: [dynamic]Segment
-    l_left_segment_array: [dynamic]Segment
+    
     right_segment_array: [dynamic]Segment
     left_segment_array: [dynamic]Segment
 
-    r_right_locus_array: [dynamic]Locus
-    l_left_locus_array: [dynamic]Locus
     right_locus_array: [dynamic]Locus
     left_locus_array: [dynamic]Locus
 
@@ -76,19 +74,9 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
         color = rl.RED
     } 
 
-    r_right_seg:= right_seg
-    r_right_seg.color = rl.BLACK
-    r_right_seg.loci = r_right_locus_array
-
-    l_left_seg:= left_seg
-    l_left_seg.color = rl.BROWN
-    l_left_seg.loci = l_left_locus_array
-
     append(&right_segment_array, right_seg)
     append(&left_segment_array, left_seg)
-    append(&l_left_segment_array, l_left_seg)
-    append(&r_right_segment_array, r_right_seg)
-
+   
     left_chrom:= Chromatid {
         chromatid_id = "left",
         rect = rl.Rectangle {
@@ -99,18 +87,6 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
         },
         segments = left_segment_array,
         color = rl.RED    
-    }
-
-    l_left_chrom:= Chromatid {
-        chromatid_id = "left",
-        rect = rl.Rectangle {
-            x_pos - 30,
-            y_pos,
-            25,
-            left_length,
-        }, 
-        segments = l_left_segment_array, 
-        color = rl.GRAY        
     }
 
     right_chrom:= Chromatid {
@@ -125,23 +101,23 @@ init_chromatid_pair :: proc(pair_id: string, left_length: f32, right_length: f32
         color = rl.BLUE
     }
 
-    r_right_chrom:= Chromatid {
-        chromatid_id = "right",
-        rect = rl.Rectangle {
-            x_pos + 30 + 30, // offset for visual separation
-            y_pos,
-            25,
-            right_length
-        },
-        segments = r_right_segment_array,
-        color = rl.BLACK
-    }
+    
+    // return HomologousPair { 
+    //     pair_id = pair_id,
+    //     x_pos = x_pos,
+    //     y_pos = y_pos,
+    //     chromatids = {l_left_chrom, left_chrom, right_chrom, r_right_chrom}
+    // }
+
+    chromatids : [dynamic]Chromatid
+
+    append(&chromatids, left_chrom, right_chrom)
 
     return HomologousPair { 
         pair_id = pair_id,
         x_pos = x_pos,
         y_pos = y_pos,
-        chromatids = {l_left_chrom, left_chrom, right_chrom, r_right_chrom}
+        chromatids = chromatids //{left_chrom, right_chrom}
     }
 }
 
@@ -159,8 +135,8 @@ add_locus :: proc(chrom_pair: ^HomologousPair, locus_name: string, left_allele: 
     }
         append(&chrom_pair.chromatids[0].segments[0].loci, left_locus)
         append(&chrom_pair.chromatids[1].segments[0].loci, left_locus)
-        append(&chrom_pair.chromatids[2].segments[0].loci, right_locus)
-        append(&chrom_pair.chromatids[3].segments[0].loci, right_locus)
+       // append(&chrom_pair.chromatids[2].segments[0].loci, right_locus)
+       // append(&chrom_pair.chromatids[3].segments[0].loci, right_locus)
     
 }
 
@@ -224,6 +200,82 @@ update_segment_positions :: proc(chroms: ^HomologousPair) {
             }
         }
     }
+}
+
+duplicate_chromatids :: proc(chroms: ^HomologousPair) {
+    
+    temp_chromatid_array := slice.clone_to_dynamic(chroms.chromatids[:])
+    defer(delete(temp_chromatid_array))
+    
+        for i in 1..<len(temp_chromatid_array) {
+
+        temp_chromatid := temp_chromatid_array[i]
+        
+        dup_segment_array := slice.clone_to_dynamic(temp_chromatid_array[i].segments[:])
+        temp_chromatid.segments = dup_segment_array
+    
+
+    }
+
+    left_dup := chroms.chromatids[0]
+    right_dup := chroms.chromatids[1]
+
+
+    //copy segment array contents from input chroms 
+    right_dup_segment_array: [dynamic]Segment
+    left__dup_segment_array: [dynamic]Segment
+    
+    //new_array, err := slice.clone_into_dynamic(original_array[:])
+
+
+    // new_array := make([dynamic]int)
+    // Appends all elements from original_array to new_array
+    // append(&new_array, ..original_array[:]) 
+
+    // copy locus array contents from input chroms which shoud already be intialized. 
+    right_dup_locus_array: [dynamic]Locus
+    left_dup_locus_array: [dynamic]Locus
+
+    left_seg: = chroms.chromatids[0].segments[0]
+    right_seg: = chroms.chromatids[0].segments[0]
+
+    right_dup_seg:= right_seg
+    right_dup_seg.color = rl.BLACK
+    right_dup_seg.loci = right_dup_locus_array
+
+    left_dup_seg:= left_seg
+    left_dup_seg.color = rl.BROWN
+    left_dup_seg.loci = left_dup_locus_array
+    
+
+    // append(&l_left_segment_array, l_left_seg)
+    // append(&r_right_segment_array, r_right_seg)
+
+
+    // left_dup_chrom:= Chromatid {
+    //     chromatid_id = "left",
+    //     rect = rl.Rectangle {
+    //         x_pos - 30,
+    //         y_pos,
+    //         25,
+    //         left_length,
+    //     }, 
+    //     segments = l_left_segment_array, 
+    //     color = rl.GRAY        
+    // }
+
+    // r_right_chrom:= Chromatid {
+    //     chromatid_id = "right",
+    //     rect = rl.Rectangle {
+    //         x_pos + 30 + 30, // offset for visual separation
+    //         y_pos,
+    //         25,
+    //         right_length
+    //     },
+    //     segments = r_right_segment_array,
+    //     color = rl.BLACK
+    // }
+
 }
 /*
 split_chrom :: proc(chrom: ^ChromatidPair, click_position: [2]f32) {
