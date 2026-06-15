@@ -180,7 +180,7 @@ drag_chroms :: proc(chroms: ^HomologousPair, mouse_pos:rl.Vector2) {
             new_pos := mouse_pos - chromatids.drag_offset 
                 chromatids.rect.x = new_pos.x
                 chromatids.rect.y = new_pos.y
-            fmt.printfln("mouse: %v, offset: %v, new: %v", mouse_pos, chrom.drag_offset, new_pos)
+            //fmt.printfln("mouse: %v, offset: %v, new: %v", mouse_pos, chrom.drag_offset, new_pos)
 
                 if rl.IsMouseButtonReleased(.LEFT) {
                 chromatids.dragging = false
@@ -202,81 +202,69 @@ update_segment_positions :: proc(chroms: ^HomologousPair) {
     }
 }
 
-duplicate_chromatids :: proc(chroms: ^HomologousPair) {
-    
-    temp_chromatid_array := slice.clone_to_dynamic(chroms.chromatids[:])
-    defer(delete(temp_chromatid_array))
-    
-        for i in 1..<len(temp_chromatid_array) {
+duplicate_chromatids :: proc(pair: ^HomologousPair) {
+    // Assuming a homologous pair starts with two chromatids (0 and 1)
+    // We want to duplicate chromatid 0 into 2, and chromatid 1 into 3.
 
-        temp_chromatid := temp_chromatid_array[i]
-        
-        dup_segment_array := slice.clone_to_dynamic(temp_chromatid_array[i].segments[:])
-        temp_chromatid.segments = dup_segment_array
-    
+    // Ensure the `chromatids` dynamic array has enough capacity for 4 chromatids
+    // or at least 2 more if it currently holds 2.
 
+    
+    if len(pair.chromatids) < 4 {
+        s := make([]Chromatid, 4 - len(pair.chromatids))
+        append(&pair.chromatids, ..s)
+    }
+    
+    // Deep copy chromatid 0 to chromatid 2
+    if len(pair.chromatids) > 0 {
+        pair.chromatids[2] = copy_chromatid(pair.chromatids[0]);
+        pair.chromatids[2].rect.x = pair.chromatids[0].rect.x - 30
     }
 
-    left_dup := chroms.chromatids[0]
-    right_dup := chroms.chromatids[1]
-
-
-    //copy segment array contents from input chroms 
-    right_dup_segment_array: [dynamic]Segment
-    left__dup_segment_array: [dynamic]Segment
-    
-    //new_array, err := slice.clone_into_dynamic(original_array[:])
-
-
-    // new_array := make([dynamic]int)
-    // Appends all elements from original_array to new_array
-    // append(&new_array, ..original_array[:]) 
-
-    // copy locus array contents from input chroms which shoud already be intialized. 
-    right_dup_locus_array: [dynamic]Locus
-    left_dup_locus_array: [dynamic]Locus
-
-    left_seg: = chroms.chromatids[0].segments[0]
-    right_seg: = chroms.chromatids[0].segments[0]
-
-    right_dup_seg:= right_seg
-    right_dup_seg.color = rl.BLACK
-    right_dup_seg.loci = right_dup_locus_array
-
-    left_dup_seg:= left_seg
-    left_dup_seg.color = rl.BROWN
-    left_dup_seg.loci = left_dup_locus_array
-    
-
-    // append(&l_left_segment_array, l_left_seg)
-    // append(&r_right_segment_array, r_right_seg)
-
-
-    // left_dup_chrom:= Chromatid {
-    //     chromatid_id = "left",
-    //     rect = rl.Rectangle {
-    //         x_pos - 30,
-    //         y_pos,
-    //         25,
-    //         left_length,
-    //     }, 
-    //     segments = l_left_segment_array, 
-    //     color = rl.GRAY        
-    // }
-
-    // r_right_chrom:= Chromatid {
-    //     chromatid_id = "right",
-    //     rect = rl.Rectangle {
-    //         x_pos + 30 + 30, // offset for visual separation
-    //         y_pos,
-    //         25,
-    //         right_length
-    //     },
-    //     segments = r_right_segment_array,
-    //     color = rl.BLACK
-    // }
-
+    // Deep copy chromatid 1 to chromatid 3
+    if len(pair.chromatids) > 1 {
+        pair.chromatids[3] = copy_chromatid(pair.chromatids[1]);
+        pair.chromatids[3].rect.x = pair.chromatids[1].rect.x + 30
+    }
 }
+
+copy_chromatid :: proc(src: Chromatid) -> Chromatid {
+    dst := src; // shallow copy initial fields
+    // Deep copy segments
+    dst.segments = make([dynamic]Segment, 0, len(src.segments));
+    for segment in src.segments {
+        append(&dst.segments, copy_segment(segment));
+    }
+    return dst;
+}
+
+copy_segment :: proc(src: Segment) -> Segment {
+    dst := src; // shallow copy initial fields
+    // Deep copy loci
+    dst.loci = make([dynamic]Locus, 0, len(src.loci));
+    for locus in src.loci {
+        append(&dst.loci, locus); // Locus is a simple struct with string and f32, a shallow copy is sufficient.
+    }
+    return dst;
+}
+
+delete_loci :: proc(src: Segment) {
+    delete(src.loci)
+}
+
+delete_segment :: proc(src: Chromatid) {
+    for seg in src.segments {
+        delete_loci(seg)
+    }
+}
+
+delete_chromatid :: proc (target: ^HomologousPair) {
+     chrom := target.chromatids[0]
+     delete_segment(chrom)
+}
+
+
+
 /*
 split_chrom :: proc(chrom: ^ChromatidPair, click_position: [2]f32) {
 
@@ -344,6 +332,15 @@ main :: proc() {
             highlight_chroms(&chromosomes, mouse_pos)
             drag_chroms(&chromosomes, mouse_pos)
             update_segment_positions(&chromosomes)
+            
+            if rl.IsKeyPressed(.R) {
+                duplicate_chromatids(&chromosomes)
+            }
+
+            if rl.IsKeyPressed(.D) {
+                delete_chromatid(&chromosomes)
+            }
+            
         }
            
     
