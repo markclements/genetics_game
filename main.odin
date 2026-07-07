@@ -32,12 +32,11 @@ Chromatid :: struct {
 }
 
 HomologousPair :: struct {
-    pair_id: string, //"1", "XY"
-    x_pos : f32, // starting position, might be used to drive positions and animations? 
+    pair_id: string, 
+    x_pos : f32, 
     y_pos: f32,
-    chromatids: [dynamic]Chromatid, // ordered 0,1,2,3; 1 and 2 are nonsister and capable of crossover, 0 and 3 are non sister and do not crossover
-                             // 4 because of duplication so we don't have to write proc to duplicate chromatid. Just hide or show based upon state. 
-}
+    chromatids: [dynamic]Chromatid,
+} 
 
 Genome :: [dynamic]HomologousPair
 
@@ -258,9 +257,16 @@ delete_segment :: proc(src: Chromatid) {
     }
 }
 
-delete_chromatid :: proc (target: ^HomologousPair) {
-     chrom := target.chromatids[0]
-     delete_segment(chrom)
+delete_chromatid :: proc (pair: ^HomologousPair) {
+     if len(pair.chromatids) > 2 {
+        for i in 0..=len(pair.chromatids) {
+            if i == 0 {
+                delete_segment(pair.chromatids[i])
+                //fmt.println(pair.chromatids[i])
+            }
+        }
+     }
+     
 }
 
 
@@ -335,15 +341,17 @@ main :: proc() {
             
             if rl.IsKeyPressed(.R) {
                 duplicate_chromatids(&chromosomes)
+                //fmt.println(len(genome[0].chromatids))
             }
 
             if rl.IsKeyPressed(.D) {
                 delete_chromatid(&chromosomes)
+                // fmt.println(len(genome[0].chromatids))
             }
             
         }
            
-    
+       
         rl.BeginDrawing()
 		rl.ClearBackground({160, 200, 255, 255})
 
@@ -354,7 +362,10 @@ main :: proc() {
             rl.DrawText(strings.clone_to_cstring(text, context.temp_allocator), 10, 10, 20, rl.BLACK)
         
         rl.EndDrawing()
-
+        
+        for chrom in genome {
+            fmt.println(chrom.chromatids[0].segments[0].loci)
+        }
     }
 	rl.CloseWindow() // main loop ends here
 
